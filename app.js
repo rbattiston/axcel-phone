@@ -17,6 +17,7 @@ import { MIN_STATIC_S } from './thresholds.js';
 // held before pressing the button is in the recording and counts.
 const PRE_ROLL_S = 3.0;
 import { StillnessTracker } from './stillness.js';
+import { VERSION } from './version.js';
 
 const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -432,6 +433,40 @@ function tick() {
   setTimeout(tick, REDRAW_MS);
 }
 
+// ----------------------------------------------------------------- updates
+
+let swReg = null;
+
+/**
+ * Ask whether a newer build exists. The service worker serves network-first, so
+ * an online reload already picks up new code -- this exists so the question can
+ * be answered deliberately, standing in a gym, without wondering.
+ */
+async function checkForUpdate() {
+  const el = $('version');
+  el.className = 'checking';
+  el.textContent = 'checking…';
+  try {
+    if (swReg) await swReg.update();
+    // Compare against the served copy, bypassing the cache entirely.
+    const res = await fetch('./version.js?t=' + Date.now(), { cache: 'no-store' });
+    const latest = (await res.text()).match(/VERSION = "([^"]*)"/)?.[1];
+    if (latest && latest !== VERSION) {
+      el.className = 'fresh';
+      el.textContent = 'new version — tap to reload';
+      el.onclick = () => location.reload();
+    } else {
+      el.className = '';
+      el.textContent = 'v' + VERSION + ' — up to date';
+      setTimeout(() => { el.textContent = 'v' + VERSION; }, 4000);
+    }
+  } catch {
+    el.className = '';
+    el.textContent = 'v' + VERSION + ' — offline, cannot check';
+    setTimeout(() => { el.textContent = 'v' + VERSION; }, 4000);
+  }
+}
+
 // -------------------------------------------------------------------- init
 
 (async function init() {
@@ -457,7 +492,28 @@ function tick() {
     $('state').textContent = 'press the device button to start a set';
   };
 
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  $('version').textContent = 'v' + VERSION;
+  $('version').onclick = checkForUpdate;
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      swReg = reg;
+      // A new worker taking over means new code is already cached and one
+      // reload away. Say so rather than leaving the stale build running silently.
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        if (!w) return;
+        w.addEventListener('statechange', () => {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) {
+            const el = $('version');
+            el.textContent = 'update ready — tap to reload';
+            el.className = 'fresh';
+            el.onclick = () => location.reload();
+          }
+        });
+      });
+    }).catch(() => {});
+  }
   tick();
   if (new URLSearchParams(location.search).has('replay')) startReplay();
 })();
