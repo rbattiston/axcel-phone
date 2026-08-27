@@ -1,0 +1,14 @@
+{
+  "name": "Axcel Capture",
+  "short_name": "Axcel",
+  "description": "Records the Axcel device's raw BLE stream and per-set labels.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111418",
+  "theme_color": "#111418",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

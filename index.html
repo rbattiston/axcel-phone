@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111418">
+<title>Axcel</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header id="bar">
+  <span id="link" class="pill">disconnected</span>
+  <span id="rate" class="dim"></span>
+  <span id="batt" class="dim right"></span>
+</header>
+
+<main>
+  <!-- Mounting: the highest-value display. A set with no still period cannot be
+       analysed at all, and that is only fixable while still at the machine. -->
+  <section id="mount" class="card">
+    <div id="bubble-wrap"><canvas id="bubble" width="88" height="88"></canvas></div>
+    <div id="mount-text">
+      <div id="up">up = ?</div>
+      <div id="tilt" class="dim">tilt —</div>
+      <div id="still" class="dim">waiting for data</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <canvas id="trace" height="150"></canvas>
+    <div class="dim small">accel magnitude, last 8 s</div>
+  </section>
+
+  <section id="state" class="card big">press the device button to start a set</section>
+
+  <!-- Shown when a set ends. These labels cannot be reconstructed afterwards,
+       which is why the form matters more than any of the plots above. -->
+  <section id="form" class="card hidden">
+    <h2>Set finished — label it</h2>
+    <label>Exercise
+      <input id="f-exercise" list="exercise-list" autocomplete="off" placeholder="type to search">
+      <datalist id="exercise-list"></datalist>
+    </label>
+    <div class="row">
+      <label>Load <input id="f-load" type="number" inputmode="decimal" step="any"></label>
+      <label>Unit
+        <select id="f-unit"><option>lb</option><option>kg</option></select>
+      </label>
+      <label>Set <input id="f-set" type="number" inputmode="numeric" value="1"></label>
+    </div>
+    <div class="row">
+      <label>Reps <input id="f-reps" type="number" inputmode="numeric"></label>
+      <label>RIR <input id="f-rir" type="number" inputmode="numeric"></label>
+    </div>
+    <label>Note <input id="f-note" placeholder="optional"></label>
+    <div id="f-summary" class="dim small"></div>
+    <div class="row">
+      <button id="f-save" class="primary">Save set</button>
+      <button id="f-discard">Discard</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>This session</h2>
+    <ol id="sets" class="dim"><li class="dim">nothing yet</li></ol>
+  </section>
+</main>
+
+<footer>
+  <button id="connect" class="primary">Connect</button>
+  <button id="export">Export</button>
+  <button id="wipe">Wipe</button>
+</footer>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
