@@ -94,8 +94,25 @@
   var el = document.getElementById('version');
   function show(text, cls) { el.textContent = text; el.className = cls || 'dim'; }
 
-  // Clear every cache and service worker, then reload from the network. The
-  // escape hatch for any cache state we did not anticipate.
+  // Every file the app loads. Listed here because the reset has to refresh the
+  // browser's HTTP cache entry for each one by its exact URL.
+  var ASSETS = ['./index.html', './app.js', './decode.js', './stillness.js',
+                './exercises.js', './thresholds.js', './version.js',
+                './style.css', './sw.js', './manifest.json'];
+
+  // Clear every cache and service worker, then reload from the network.
+  //
+  // There are TWO caches and clearing one is not enough. caches.delete() empties
+  // the Cache Storage API, which is what the service worker uses. The browser's
+  // own HTTP cache is separate and untouchable from script -- and GitHub Pages
+  // serves with max-age=600, so for ten minutes Chrome will keep handing back
+  // the same stale app.js however much service worker state is destroyed. That
+  // produced a reset loop: fresh version.js, stale app.js, forever.
+  //
+  // fetch(url, {cache: 'reload'}) is the escape. It bypasses the HTTP cache AND
+  // writes the fresh response into it, so the reload that follows gets new
+  // files. No query string: a query would create a different cache entry and
+  // leave the real one exactly as stale as before.
   function hardReset() {
     show('resetting…', 'checking');
     var jobs = [];
@@ -110,7 +127,11 @@
       }));
     }
     Promise.all(jobs)['catch'](function () {}).then(function () {
-      location.replace(location.pathname + '?r=' + Date.now());
+      return Promise.all(ASSETS.map(function (u) {
+        return fetch(u, { cache: 'reload' })['catch'](function () {});
+      }));
+    })['catch'](function () {}).then(function () {
+      location.replace(location.pathname);
     });
   }
   window.__axcelHardReset = hardReset;

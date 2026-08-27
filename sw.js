@@ -2,7 +2,7 @@
 // installed once from HTTPS, and everything it needs is cached here.
 //
 // Bump CACHE when any file changes, or the phone will keep serving the old one.
-const CACHE = 'axcel-v4';
+const CACHE = 'axcel-v5';
 const FILES = [
   './', './index.html', './style.css', './app.js',
   './decode.js', './exercises.js', './thresholds.js', './version.js',
@@ -24,7 +24,11 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request)
+    // `no-cache` forces a revalidation rather than letting the browser's HTTP
+    // cache answer from its own copy. Without it "network first" still returns
+    // a stale file for as long as Pages' max-age says it may -- the request
+    // never reaches the network at all.
+    fetch(e.request, { cache: 'no-cache' })
       .then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })
       .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html')))
   );
