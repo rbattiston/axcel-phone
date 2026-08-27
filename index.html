@@ -16,9 +16,7 @@
   <span id="batt" class="dim right"></span>
 </header>
 
-<!-- Tapping the version re-checks for a newer build and reloads if there is
-     one, so "have I got the fresh one?" is answerable without a laptop. -->
-<div id="version" class="dim" title="tap to check for an update">v—</div>
+<div id="version" class="dim">checking…</div>
 
 <main>
   <!-- Mounting: the highest-value display. A set with no still period cannot be
@@ -77,6 +75,82 @@
   <button id="export">Export</button>
   <button id="wipe">Wipe</button>
 </footer>
+
+<!--
+  Version display, deliberately INLINE and deliberately not a module.
+
+  It has to survive the failure it exists to report. A stale cached app.js
+  beside a fresh index.html is a real state -- a CDN can serve the two from
+  different cache generations, and a service worker will hold an old script
+  indefinitely -- and in that state anything living in app.js never runs. The
+  first attempt put this display there and the result was a permanent "v—",
+  which told the user nothing except that something was wrong.
+
+  So: this compares what is RUNNING (a global the module sets) against what is
+  DEPLOYED (fetched with no-store), and can always offer a hard reset.
+-->
+<script>
+(function () {
+  var el = document.getElementById('version');
+  function show(text, cls) { el.textContent = text; el.className = cls || 'dim'; }
+
+  // Clear every cache and service worker, then reload from the network. The
+  // escape hatch for any cache state we did not anticipate.
+  function hardReset() {
+    show('resetting…', 'checking');
+    var jobs = [];
+    if ('serviceWorker' in navigator) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    if (window.caches) {
+      jobs.push(caches.keys().then(function (ks) {
+        return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+      }));
+    }
+    Promise.all(jobs)['catch'](function () {}).then(function () {
+      location.replace(location.pathname + '?r=' + Date.now());
+    });
+  }
+  window.__axcelHardReset = hardReset;
+
+  function verdict(latest) {
+    var running = window.__axcelVersion;
+    if (!running) {
+      show('app.js did not load — tap to reset', 'stale');
+      el.onclick = hardReset;
+    } else if (latest && latest !== running) {
+      show('stale build — tap to update', 'stale');
+      el.onclick = hardReset;
+    } else {
+      show('v' + running + (latest ? '' : ' (offline)'));
+      el.onclick = function () {
+        show('checking…', 'checking');
+        check(true);
+      };
+    }
+  }
+
+  function check(force) {
+    fetch('./version.js?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var m = t.match(/VERSION = "([^"]*)"/);
+        var latest = m ? m[1] : null;
+        if (force && latest && latest === window.__axcelVersion) {
+          show('v' + latest + ' — up to date', 'fresh');
+          setTimeout(function () { verdict(latest); }, 3000);
+        } else {
+          verdict(latest);
+        }
+      })['catch'](function () { verdict(null); });
+  }
+
+  // Give the module a moment to load and publish its version before judging it.
+  setTimeout(function () { check(false); }, 900);
+})();
+</script>
 
 <script type="module" src="./app.js"></script>
 </body>

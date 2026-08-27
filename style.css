@@ -96,3 +96,4 @@ footer {
 }
 #version.checking { color: var(--accent); }
 #version.fresh { color: var(--ok); }
+#version.stale { color: var(--bad); font-weight: 600; }
