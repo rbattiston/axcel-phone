@@ -58,6 +58,10 @@ export class StillnessTracker {
     this.runStartUs = null;
     this.lastUs = null;
     this.verdict = null;
+    // Completed still runs, so a recording can be asked the question
+    // find_static_block actually asks -- "was there a usable still stretch
+    // ANYWHERE in here" -- rather than "were you still at one instant".
+    this.runs = [];
   }
 
   /** @param {number} t_us @param {number[]} a @param {number[]} g */
@@ -71,8 +75,37 @@ export class StillnessTracker {
     if (this.verdict === true) {
       if (this.runStartUs === null) this.runStartUs = this.win[0].t_us;
     } else if (this.verdict === false) {
+      if (this.runStartUs !== null) {
+        this.runs.push({ start: this.runStartUs, end: t_us });
+        // Two minutes is longer than any set plus its rest.
+        const keep = t_us - 120 * 1e6;
+        while (this.runs.length && this.runs[0].end < keep) this.runs.shift();
+      }
       this.runStartUs = null;
     }
+  }
+
+  /**
+   * Longest continuous still stretch overlapping [fromUs, toUs], in seconds.
+   *
+   * This is the honest post-set check. Asking "how long had you been still the
+   * instant the set started" is the wrong question and always answered ~0: the
+   * device fires SET_START about 150 ms after the button is released, so the
+   * window at that moment contains the press itself. Meanwhile the analysis is
+   * happy with a still stretch anywhere in the recording, pre-roll included.
+   */
+  longestRunIn(fromUs, toUs) {
+    let best = 0;
+    const spans = this.runs.slice();
+    if (this.runStartUs !== null && this.lastUs !== null) {
+      spans.push({ start: this.runStartUs, end: this.lastUs });
+    }
+    for (const r of spans) {
+      const lo = Math.max(r.start, fromUs);
+      const hi = Math.min(r.end, toUs);
+      if (hi > lo) best = Math.max(best, (hi - lo) / 1e6);
+    }
+    return best;
   }
 
   /** Seconds of continuous stillness so far. */

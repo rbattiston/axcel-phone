@@ -12,6 +12,10 @@
 import { Decoder, EV_SET_START, EV_SET_END_BUTTON, EV_SET_END_IDLE } from './decode.js';
 import { EXERCISES } from './exercises.js';
 import { MIN_STATIC_S } from './thresholds.js';
+
+// The importer keeps this much of the stream before the set event, so stillness
+// held before pressing the button is in the recording and counts.
+const PRE_ROLL_S = 3.0;
 import { StillnessTracker } from './stillness.js';
 
 const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
@@ -223,10 +227,6 @@ function onEvent(ev) {
   if (ev.code === EV_SET_START) {
     state.recording = true;
     state.setStartUs = ev.t_us;
-    // Snapshot how long the lifter had held still when the set began. That is
-    // exactly what find_static_block will look for later.
-    state.stillHeldAtStart = still.heldFor();
-    state.stillAtStart = still.good;
     state.samplesAtStart = dec.stats.samples;
     $('state').textContent = 'RECORDING';
     setLink('connected', 'rec');
@@ -239,9 +239,14 @@ function onEvent(ev) {
       samples: dec.stats.samples - (state.samplesAtStart || 0),
       duration_s: (ev.t_us - state.setStartUs) / 1e6,
       end_reason: ev.code === EV_SET_END_BUTTON ? 'button' : 'idle',
-      still_at_start: state.stillAtStart,
-      still_held_s: Math.round((state.stillHeldAtStart || 0) * 100) / 100,
+      // The question find_static_block asks: was there a usable still stretch
+      // anywhere in what gets saved, pre-roll included. Emphatically NOT "were
+      // you still the instant the set started" -- SET_START fires ~150 ms after
+      // the button is released, so that instant always contains the press.
+      still_best_s: Math.round(
+        still.longestRunIn(state.setStartUs - PRE_ROLL_S * 1e6, ev.t_us) * 100) / 100,
     };
+    state.pending.still_ok = state.pending.still_best_s >= MIN_STATIC_S;
     openForm();
   }
 }
@@ -256,8 +261,8 @@ function openForm() {
   $('f-reps').value = '';
   $('f-rir').value = '';
   $('f-note').value = '';
-  const warn = p.still_at_start === false
-    ? `  ⚠ ONLY ${p.still_held_s}s STILL at the start (need ${MIN_STATIC_S}s) — `
+  const warn = p.still_ok === false
+    ? `  ⚠ LONGEST STILL STRETCH ${p.still_best_s}s (need ${MIN_STATIC_S}s) — `
       + 'this set may not be analysable'
     : '';
   $('f-summary').textContent =
@@ -295,7 +300,7 @@ function renderSets() {
   const ol = $('sets');
   if (!state.sets.length) { ol.innerHTML = '<li class="dim">nothing yet</li>'; return; }
   ol.innerHTML = state.sets.map((s) => {
-    const bad = s.still_at_start === false;
+    const bad = s.still_ok === false;
     return `<li class="${bad ? 'warn' : ''}">${s.exercise} · set ${s.set_number} · ` +
            `${s.reps ?? '?'} reps · ${s.duration_s.toFixed(0)}s${bad ? ' ⚠' : ''}</li>`;
   }).join('');

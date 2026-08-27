@@ -2,7 +2,7 @@
 // installed once from HTTPS, and everything it needs is cached here.
 //
 // Bump CACHE when any file changes, or the phone will keep serving the old one.
-const CACHE = 'axcel-v1';
+const CACHE = 'axcel-v2';
 const FILES = [
   './', './index.html', './style.css', './app.js',
   './decode.js', './exercises.js', './thresholds.js',
