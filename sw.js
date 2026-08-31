@@ -2,11 +2,18 @@
 // installed once from HTTPS, and everything it needs is cached here.
 //
 // Bump CACHE when any file changes, or the phone will keep serving the old one.
-const CACHE = 'axcel-v5';
+//
+// FILES must list every module the app imports at boot. stillness.js was
+// missing from v5: install online, walk into the basement, and its cache miss
+// fell through to the index.html fallback -- an HTML answer to a module
+// request, so the app failed to boot precisely where this file says it must
+// work. index.html's reset ASSETS list is the other copy of this inventory;
+// change both together.
+const CACHE = 'axcel-v6';
 const FILES = [
   './', './index.html', './style.css', './app.js',
-  './decode.js', './exercises.js', './thresholds.js', './version.js',
-  './manifest.json', './icon.svg',
+  './decode.js', './stillness.js', './exercises.js', './thresholds.js',
+  './version.js', './manifest.json', './icon.svg',
 ];
 
 self.addEventListener('install', (e) => {
